@@ -79,9 +79,8 @@ resource "aws_lambda_permission" "api_gateway_invoke" {
 }
 
 output "api_url" {
-  value = "${aws_api_gateway_rest_api.api_gateway.execution_arn}/prod"
+  value = "https://${aws_api_gateway_rest_api.api_gateway.id}.execute-api.${var.aws_region}.amazonaws.com/prod/some-path/"
 }
-
 
 
 
