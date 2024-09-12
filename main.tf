@@ -39,7 +39,8 @@ data "archive_file" "lambda_zip" {
 
 resource "aws_api_gateway_rest_api" "api_gateway" {
   name        = "website_api"
-  description = "API Gateway для вызова Lambda-функции"
+  description = "API Gateway Lambda"
+
 }
 
 resource "aws_api_gateway_resource" "root" {
@@ -70,6 +71,7 @@ resource "aws_api_gateway_deployment" "api_deployment" {
   stage_name  = "prod"
 }
 
+
 resource "aws_lambda_permission" "api_gateway_invoke" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
@@ -78,9 +80,34 @@ resource "aws_lambda_permission" "api_gateway_invoke" {
   source_arn    = "${aws_api_gateway_rest_api.api_gateway.execution_arn}/*/*"
 }
 
-output "api_url" {
-  value = "https://${aws_api_gateway_rest_api.api_gateway.id}.execute-api.${var.aws_region}.amazonaws.com/prod/some-path/"
+
+
+
+#For Amazon API Gateway supporting custom domains with HTTPS, ACM certificates must be created in the us-east-1 regions.
+provider "aws" {
+  alias  = "us-east-1"
+  region = "us-east-1"
 }
 
+resource "aws_acm_certificate" "cert_us_east_1" {
+  provider          = aws.us-east-1
+  domain_name       = "apia.aleksandr-kuznetsov.com"
+  validation_method = "DNS"
+}
 
+# Привязка пользовательского домена к API Gateway
+resource "aws_api_gateway_domain_name" "custom_domain" {
+  domain_name     = "apia.aleksandr-kuznetsov.com"
+  certificate_arn = aws_acm_certificate.cert_us_east_1.arn
+}
 
+# Привязка Stage к домену
+resource "aws_api_gateway_base_path_mapping" "base_path_mapping" {
+  domain_name = aws_api_gateway_domain_name.custom_domain.domain_name
+  api_id      = aws_api_gateway_rest_api.api_gateway.id
+  stage_name  = aws_api_gateway_deployment.api_deployment.stage_name
+}
+
+output "custom_domain_url" {
+  value = "https://${aws_api_gateway_domain_name.custom_domain.domain_name}/prod/"
+}
